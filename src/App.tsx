@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-} from "@/components/ui/card"; // CardFooter 추가
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
@@ -105,9 +105,14 @@ const DraggableWord = ({
     },
   });
 
+  const ref = (node: HTMLSpanElement | null) => {
+    drag(node);
+    drop(node);
+  };
+
   return (
     <span
-      ref={(node) => drag(drop(node))}
+      ref={ref}
       className="draggable-word"
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
@@ -125,9 +130,10 @@ function App() {
   const [customPath, setCustomPath] = useState<string>("");
   const [useCustomPath, setUseCustomPath] = useState<boolean>(false);
   const [privateKey, setPrivateKey] = useState<string>("");
-  const [publicKey, setPublicKey] = useState<string>("");
+  const [publicKey, setPublicKey] = useState<`0x${string}` | "">("");
   const [entropy, setEntropy] = useState<string>("");
   const [checksum, setChecksum] = useState<string>("");
+
   const [seed, setSeed] = useState<string>("");
   const [language, setLanguage] = useState<"ko" | "en">("en");
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null);
@@ -142,10 +148,10 @@ function App() {
   const stepDescriptionsKo = [
     "니모닉 생성: 엔트로피와 니모닉을 자동 생성합니다.",
     "개인 키 파생: 경로를 선택하거나 입력해 개인 키를 생성합니다.",
-    "공개 키 생성: 개인 키에서 공개 키를 생성합니다.",
-    "Keccak-256 해시: 공개 키에서 해시를 생성합니다.",
+    "공개 키 생성: 개인 키에서 공개 키를 생성합니다。",
+    "Keccak-256 해시: 공개 키에서 해시를 생성합니다。",
     "주소 추출: 해시에서 주소를 추출합니다。",
-    "EIP-55 체크섬 적용: 주소에 체크섬을 적용합니다.",
+    "EIP-55 체크섬 적용: 주소에 체크섬을 적용합니다。",
     "최종 주소: '0x' 접두사를 붙여 주소를 완성합니다。",
   ];
 
@@ -194,13 +200,6 @@ function App() {
     ["'0x' Prefix Added"],
   ];
 
-  const predefinedPaths = [
-    "m/44'/60'/0'/0/0",
-    "m/44'/60'/0'/0/1",
-    "m/44'/60'/1'/0/0",
-    "m/44'/0'/0'/0/0",
-  ];
-
   const onboardingGuidesKo = [
     "먼저 비밀 문장(니모닉)을 만들어볼까요? 단어를 드래그해 나만의 문장을 완성하세요!",
     "이제 문장에서 개인 키를 뽑아낼 경로를 선택해주세요.",
@@ -233,7 +232,11 @@ function App() {
         const entropyHex = `0x${Array.from(entropyBytes)
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("")}`;
-        const checksumHash = sha256(entropyHex).replace("0x", "");
+        const checksumHash = sha256(
+          `0x${Array.from(entropyBytes)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join("")}`
+        );
         const checksumBits = checksumHash.slice(0, 1);
         const newMnemonic = generateMnemonic(wordlist_english);
         setEntropy(entropyHex);
@@ -262,6 +265,7 @@ function App() {
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("")}`;
         setSeed(seedHex);
+        console.log(seed);
         const hdKey = HDKey.fromMasterSeed(seedBytes);
         const masterPrivateKey = `0x${Array.from(hdKey.privateKey!)
           .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -330,7 +334,7 @@ function App() {
           console.error("Public key not found:", publicKey);
           return;
         }
-        const publicKeyHash = keccak256(publicKey as `0x${string}`);
+        const publicKeyHash = keccak256(publicKey);
         setResults((prev) => {
           const newResults = [...prev];
           newResults[7] = `Keccak-256 Hash: ${publicKeyHash}`;
@@ -553,7 +557,7 @@ function App() {
 
   const toChecksumAddress = (address: string): string => {
     const cleanAddress = address.toLowerCase().replace("0x", "");
-    const hash = keccak256(`0x${cleanAddress}`).replace("0x", "");
+    const hash = keccak256(`0x${cleanAddress}` as `0x${string}`);
     let checksummed = "0x";
     for (let i = 0; i < cleanAddress.length; i++) {
       checksummed +=
@@ -664,11 +668,7 @@ function App() {
     "Index: Selected Key",
   ];
 
-  const renderDerivationVisualization = (
-    seed: string,
-    masterKey: string,
-    derivedKey1: string
-  ) => {
+  const renderDerivationVisualization = () => {
     const descriptions =
       language === "ko" ? pathDescriptionsKo : pathDescriptionsEn;
     const effectivePath =
@@ -702,6 +702,7 @@ function App() {
       animated: true,
     }));
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleNodeClick = (_event: any, node: any) => {
       const stepIndex = parseInt(node.id === "seed" ? "0" : node.id) - 1;
       if (resultRefs.current[stepIndex]) {
@@ -1241,9 +1242,9 @@ function App() {
                         </AccordionTrigger>
                         <AccordionContent
                           className="p-4"
-                          ref={(el) =>
-                            (resultRefs.current[index] = el as HTMLDivElement)
-                          }
+                          ref={(el) => {
+                            resultRefs.current[index] = el;
+                          }}
                         >
                           {label === "Mnemonic Phrase" &&
                           entropy &&
@@ -1270,11 +1271,7 @@ function App() {
                               </span>
                               {label.startsWith("Derived Private Key") &&
                                 index === 5 &&
-                                renderDerivationVisualization(
-                                  seed,
-                                  results[4].split(": ")[1],
-                                  results[5].split(": ")[1]
-                                )}
+                                renderDerivationVisualization()}
                             </div>
                           )}
                         </AccordionContent>
@@ -1321,9 +1318,13 @@ function App() {
           </CardContent>
           <CardFooter className="footer">
             <p className="text-sm">
-              {language === "ko" ? "Grok3로 제작됨" : "Built with Grok3"}· 2025
-              <a href="https://x.com/dilrong_" target="_blank">
-                {" "}
+              {language === "ko" ? "Grok3로 제작됨" : "Built with Grok3"}· 2025{" "}
+              <a
+                className="text-blue-500 hover:underline"
+                href="https://x.com/dilrong_"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 with Dilrong
               </a>
             </p>
