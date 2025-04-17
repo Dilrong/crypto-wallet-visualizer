@@ -31,6 +31,7 @@ import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { Analytics } from "@vercel/analytics/react";
 
 const styles = `
   @keyframes slideIn {
@@ -885,6 +886,7 @@ function App() {
 
   return (
     <DndProvider backend={HTML5Backend}>
+      <Analytics />
       <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
         <style>{styles}</style>
         <Card className="w-full max-w-2xl shadow-md">
